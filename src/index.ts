@@ -94,7 +94,7 @@ export class RetryChunkLoadPlugin {
                   }
                   throw error;
                 } else {
-                  __webpack_public_path__ = 'https://ed-cdn.englishdom.com/frontend/ed-class/bundles/';
+                  window.chunkURL = 'https://ed-cdn.englishdom.com/frontend/ed-class/bundles/';
                 }
                 return new Promise(function (resolve) {
                   var retryAttempt = ${maxRetries} - retries + 1;
