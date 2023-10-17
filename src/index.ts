@@ -1,4 +1,5 @@
 "use strict";
+// @ts-no-check
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RetryChunkLoadPlugin = void 0;
 const prettier = require("prettier");
@@ -9,36 +10,28 @@ const pluginName = 'RetryChunkLoadPlugin';
 
 class RetryChunkLoadPlugin {
     constructor(options = {}) {
-        // @ts-ignore
         this.options = Object.assign({}, options);
     }
     apply(compiler) {
+      
         compiler.hooks.thisCompilation.tap(pluginName, compilation => {
             const { mainTemplate, runtimeTemplate } = compilation;
-            // @ts-ignore
             const maxRetryValueFromOptions = Number(this.options.maxRetries);
             const maxRetries = Number.isInteger(maxRetryValueFromOptions) &&
                 maxRetryValueFromOptions > 0
                 ? maxRetryValueFromOptions
                 : 1;
-            // @ts-ignore
             const getCacheBustString = () => this.options.cacheBust
                 ? `
-                  // @ts-ignore
                   (${this.options.cacheBust})();
                 `
                 : '"cache-bust=true"';
             mainTemplate.hooks.localVars.tap({ name: pluginName, stage: 1 }, (source, chunk) => {
                 const currentChunkName = chunk.name;
-                // @ts-ignore
                 const addRetryCode = !this.options.chunks ||
-                    // @ts-ignore
                     this.options.chunks.includes(currentChunkName);
-                // @ts-ignore
                 const getRetryDelay = typeof this.options.retryDelay === 'string'
-                    // @ts-ignore
                     ? this.options.retryDelay
-                    // @ts-ignore
                     : `function() { return ${this.options.retryDelay || 0} }`;
                 if (!addRetryCode)
                     return source;
@@ -60,12 +53,7 @@ class RetryChunkLoadPlugin {
                 if (retries < 1) {
                   var realSrc = oldGetScript(chunkId);
                   error.message = 'Loading chunk ' + chunkId + ' failed after ${maxRetries} retries.\\n(' + realSrc + ')';
-                  // @ts-ignore
-                  error.request = realSrc;${this.options.lastResortScript
-                    // @ts-ignore
-                    ? this.options.lastResortScript
-                    : ''}
-                  throw error;
+                  error.request = realSrc;
                 } else {
                   window.env.publicPathLoaded = false;
 
