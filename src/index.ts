@@ -1,5 +1,5 @@
 "use strict";
-// @ts-no-check
+// @ts-nocheck
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RetryChunkLoadPlugin = void 0;
 const prettier = require("prettier");
