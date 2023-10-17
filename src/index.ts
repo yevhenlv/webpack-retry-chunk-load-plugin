@@ -1,100 +1,97 @@
-import * as prettier from 'prettier';
-import { Compiler, RuntimeGlobals } from 'webpack';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.RetryChunkLoadPlugin = void 0;
+const prettier = require("prettier");
+const webpack_1 = require("webpack");
+const envVariables = require("@englishdom/shared/utils/env-var.json");
 
 const pluginName = 'RetryChunkLoadPlugin';
 
-export interface RetryChunkLoadPluginOptions {
-  /**
-   * optional stringified function to get the cache busting query string appended to the script src
-   * if not set will default to appending the string `?cache-bust=true`
-   */
-  cacheBust?: string;
-  /**
-   * optional list of chunks to which retry script should be injected
-   * if not set will add retry script to all chunks that have webpack script loading
-   */
-  chunks?: string[];
-  /**
-   * optional code to be executed in the browser context if after all retries chunk is not loaded.
-   * if not set - nothing will happen and error will be returned to the chunk loader.
-   */
-  lastResortScript?: string;
-  /**
-   * optional value to set the maximum number of retries to load the chunk. Default is 1
-   */
-  maxRetries?: number;
-  /**
-   * optional number value to set the amount of time in milliseconds before trying to load the chunk again. Default is 0
-   * if string, value must be code to generate a delay value. Receives retryCount as argument
-   * e.g. `function(retryAttempt) { return retryAttempt * 1000 }`
-   */
-  retryDelay?: number | string;
-}
-
-export class RetryChunkLoadPlugin {
-  options: RetryChunkLoadPluginOptions;
-
-  constructor(options: RetryChunkLoadPluginOptions = {}) {
-    this.options = Object.assign({}, options);
-  }
-
-  apply(compiler: Compiler) {
-    compiler.hooks.thisCompilation.tap(pluginName, compilation => {
-      const { mainTemplate, runtimeTemplate } = compilation;
-      const maxRetryValueFromOptions = Number(this.options.maxRetries);
-      const maxRetries =
-        Number.isInteger(maxRetryValueFromOptions) &&
-        maxRetryValueFromOptions > 0
-          ? maxRetryValueFromOptions
-          : 1;
-      const getCacheBustString = () =>
-        this.options.cacheBust
-          ? `
+class RetryChunkLoadPlugin {
+    constructor(options = {}) {
+        this.options = Object.assign({}, options);
+    }
+    apply(compiler) {
+        compiler.hooks.thisCompilation.tap(pluginName, compilation => {
+            const { mainTemplate, runtimeTemplate } = compilation;
+            const maxRetryValueFromOptions = Number(this.options.maxRetries);
+            const maxRetries = Number.isInteger(maxRetryValueFromOptions) &&
+                maxRetryValueFromOptions > 0
+                ? maxRetryValueFromOptions
+                : 1;
+            const getCacheBustString = () => this.options.cacheBust
+                ? `
                   (${this.options.cacheBust})();
                 `
-          : '"cache-bust=true"';
-      mainTemplate.hooks.localVars.tap(
-        { name: pluginName, stage: 1 },
-        (source, chunk) => {
-          const currentChunkName = chunk.name;
-          const addRetryCode =
-            !this.options.chunks ||
-            this.options.chunks.includes(currentChunkName);
-
-          const getRetryDelay =
-            typeof this.options.retryDelay === 'string'
-              ? this.options.retryDelay
-              : `function() { return ${this.options.retryDelay || 0} }`;
-
-          if (!addRetryCode) return source;
-          const script = runtimeTemplate.iife(
-            '',
-            `
-          if(typeof ${RuntimeGlobals.require} !== "undefined") {
-            var oldGetScript = ${RuntimeGlobals.getChunkScriptFilename};
-            var oldLoadScript = ${RuntimeGlobals.ensureChunk};
+                : '"cache-bust=true"';
+            mainTemplate.hooks.localVars.tap({ name: pluginName, stage: 1 }, (source, chunk) => {
+                const currentChunkName = chunk.name;
+                const addRetryCode = !this.options.chunks ||
+                    this.options.chunks.includes(currentChunkName);
+                const getRetryDelay = typeof this.options.retryDelay === 'string'
+                    ? this.options.retryDelay
+                    : `function() { return ${this.options.retryDelay || 0} }`;
+                if (!addRetryCode)
+                    return source;
+                const script = runtimeTemplate.iife('', `
+          if(typeof ${webpack_1.RuntimeGlobals.require} !== "undefined") {
+            var oldGetScript = ${webpack_1.RuntimeGlobals.getChunkScriptFilename};
+            var oldLoadScript = ${webpack_1.RuntimeGlobals.ensureChunk};
             var queryMap = {};
             var countMap = {};
             var getRetryDelay = ${getRetryDelay}
-            ${RuntimeGlobals.getChunkScriptFilename} = function(chunkId){
+            ${webpack_1.RuntimeGlobals.getChunkScriptFilename} = function(chunkId){
               var result = oldGetScript(chunkId);
               return result + (queryMap.hasOwnProperty(chunkId) ? '?' + queryMap[chunkId]  : '');
             };
-            ${RuntimeGlobals.ensureChunk} = function(chunkId){
+            ${webpack_1.RuntimeGlobals.ensureChunk} = function(chunkId){
               var result = oldLoadScript(chunkId);
               return result.catch(function(error){
                 var retries = countMap.hasOwnProperty(chunkId) ? countMap[chunkId] : ${maxRetries};
                 if (retries < 1) {
                   var realSrc = oldGetScript(chunkId);
                   error.message = 'Loading chunk ' + chunkId + ' failed after ${maxRetries} retries.\\n(' + realSrc + ')';
-                  error.request = realSrc;${
-                    this.options.lastResortScript
-                      ? this.options.lastResortScript
-                      : ''
-                  }
+                  error.request = realSrc;${this.options.lastResortScript
+                    ? this.options.lastResortScript
+                    : ''}
                   throw error;
                 } else {
-                  window.chunkURL = 'https://ed-cdn.englishdom.com/frontend/ed-class/bundles/';
+                  window.env.publicPathLoaded = false;
+
+                  var links = document.querySelectorAll('link');
+
+                  links.forEach((el) => {
+                    if (el.getAttribute('rel') === 'stylesheet') {
+                      var cssLink = el.getAttribute('href');
+                      var matches = [
+                        'wss',
+                        'pages/revision',
+                        'pages/cdn',
+                        'old-browser',
+                        'stacktrace',
+                      ].filter((excluded) => (cssLink || '').match(excluded)).length;
+
+                      if (matches) return;
+                      if (window.env.publicPathLoaded) return;
+
+                      if (cssLink && cssLink.match(/\.css/)) {
+                        if (window.env.edLocalHostLoaded) {
+                          localStorage.setItem('ed-revision-host', '${envVariables.CDN_HOST}');
+                          window.env.CDN_HOST_CONST_PREV = '';
+                          window.env.CDN_HOST_CONST = '${envVariables.CDN_HOST}';
+                          window.chunkURL = '${envVariables.CDN_HOST}' + '/' + cssLink.replace("https://", "").split("/").slice(1).slice(0, -1).join("/") + '/';
+                        } else {
+                          window.env.edLocalHostLoaded = true;
+                          localStorage.setItem('ed-revision-host', window.location.origin);
+                          window.env.CDN_HOST_CONST_PREV = '${envVariables.CDN_HOST}';
+                          window.env.CDN_HOST_CONST = '';
+                          window.chunkURL = '/' + cssLink.replace("https://", "").split("/").slice(1).slice(0, -1).join("/") + '/';
+                        }
+
+                        window.env.publicPathLoaded = true;
+                      }
+                    }
+                  });
                 }
                 return new Promise(function (resolve) {
                   var retryAttempt = ${maxRetries} - retries + 1;
@@ -103,23 +100,21 @@ export class RetryChunkLoadPlugin {
                     var cacheBust = ${getCacheBustString()} + retryAttemptString;
                     queryMap[chunkId] = cacheBust;
                     countMap[chunkId] = retries - 1;
-                    resolve(${RuntimeGlobals.ensureChunk}(chunkId));
+                    resolve(${webpack_1.RuntimeGlobals.ensureChunk}(chunkId));
                   }, getRetryDelay(retryAttempt))
                 })
               });
             };
-          }`
-          );
-          return (
-            source +
-            prettier.format(script, {
-              trailingComma: 'es5',
-              singleQuote: true,
-              parser: 'babel',
-            })
-          );
-        }
-      );
-    });
-  }
+          }`);
+                return (source +
+                    prettier.format(script, {
+                        trailingComma: 'es5',
+                        singleQuote: true,
+                        parser: 'babel',
+                    }));
+            });
+        });
+    }
 }
+exports.RetryChunkLoadPlugin = RetryChunkLoadPlugin;
+//# sourceMappingURL=index.js.map
